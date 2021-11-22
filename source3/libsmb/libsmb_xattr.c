@@ -175,6 +175,7 @@ static void
 convert_sid_to_string(struct cli_state *ipc_cli,
                       struct policy_handle *pol,
                       fstring str,
+		      enum lsa_SidType* type,
                       bool numeric,
                       struct dom_sid *sid)
 {
@@ -210,6 +211,7 @@ convert_sid_to_string(struct cli_state *ipc_cli,
 
 	fstr_sprintf(str, "%s%s%s",
 		     domains[0], lp_winbind_separator(), names[0]);
+	*type = types[0];
 
 	TALLOC_FREE(ctx);
 }
@@ -743,6 +745,7 @@ cacl_get(SMBCCTX *context,
                 const char * write_time_attr;
                 const char * change_time_attr;
         } excl_attr_strings;
+	enum lsa_SidType sidType;
 
         /* Determine whether to use old-style or new-style attribute names */
         if (context->internal->full_time_names) {
@@ -965,6 +968,7 @@ cacl_get(SMBCCTX *context,
                         if (sd->owner_sid) {
                                 convert_sid_to_string(ipc_cli, pol,
                                                       sidstr,
+						      &sidType,
                                                       numeric,
                                                       sd->owner_sid);
                         } else {
@@ -1011,7 +1015,7 @@ cacl_get(SMBCCTX *context,
                 if (! exclude_nt_group) {
                         if (sd->group_sid) {
                                 convert_sid_to_string(ipc_cli, pol,
-                                                      sidstr, numeric,
+                                                      sidstr, &sidType, numeric,
                                                       sd->group_sid);
                         } else {
                                 fstrcpy(sidstr, "");
@@ -1060,7 +1064,7 @@ cacl_get(SMBCCTX *context,
 
                                 struct security_ace *ace = &sd->dacl->aces[i];
                                 convert_sid_to_string(ipc_cli, pol,
-                                                      sidstr, numeric,
+                                                      sidstr, &sidType, numeric,
                                                       &ace->trustee);
 
                                 if (all || all_nt) {
@@ -1068,11 +1072,12 @@ cacl_get(SMBCCTX *context,
                                                 p = talloc_asprintf(
                                                         ctx,
                                                         ",ACL:"
-                                                        "%s:%d/%d/0x%08x",
+                                                        "%s:%d/%d/0x%08x/%d",
                                                         sidstr,
                                                         ace->type,
                                                         ace->flags,
-                                                        ace->access_mask);
+                                                        ace->access_mask,
+							sidType);
                                                 if (!p) {
                                                         errno = ENOMEM;
                                                         return -1;
@@ -1081,11 +1086,12 @@ cacl_get(SMBCCTX *context,
                                         } else {
                                                 n = snprintf(
                                                         buf, bufsize,
-                                                        ",ACL:%s:%d/%d/0x%08x",
+                                                        ",ACL:%s:%d/%d/0x%08x/%d",
                                                         sidstr,
                                                         ace->type,
                                                         ace->flags,
-                                                        ace->access_mask);
+                                                        ace->access_mask,
+							sidType);
                                         }
                                 } else if ((strncasecmp_m(name, "acl", 3) == 0 &&
                                             strcasecmp_m(name+3, sidstr) == 0) ||
@@ -1094,10 +1100,11 @@ cacl_get(SMBCCTX *context,
                                         if (determine_size) {
                                                 p = talloc_asprintf(
                                                         ctx,
-                                                        "%d/%d/0x%08x",
+                                                        "%d/%d/0x%08x/%d",
                                                         ace->type,
                                                         ace->flags,
-                                                        ace->access_mask);
+                                                        ace->access_mask,
+							sidType);
                                                 if (!p) {
                                                         errno = ENOMEM;
                                                         return -1;
@@ -1105,21 +1112,23 @@ cacl_get(SMBCCTX *context,
                                                 n = strlen(p);
                                         } else {
                                                 n = snprintf(buf, bufsize,
-                                                             "%d/%d/0x%08x",
+                                                             "%d/%d/0x%08x/%d",
                                                              ace->type,
                                                              ace->flags,
-                                                             ace->access_mask);
+                                                             ace->access_mask,
+							     sidType);
                                         }
                                 } else if (all_nt_acls) {
                                         if (determine_size) {
                                                 p = talloc_asprintf(
                                                         ctx,
-                                                        "%s%s:%d/%d/0x%08x",
+                                                        "%s%s:%d/%d/0x%08x/%d",
                                                         i ? "," : "",
                                                         sidstr,
                                                         ace->type,
                                                         ace->flags,
-                                                        ace->access_mask);
+                                                        ace->access_mask,
+							sidType);
                                                 if (!p) {
                                                         errno = ENOMEM;
                                                         return -1;
@@ -1127,12 +1136,13 @@ cacl_get(SMBCCTX *context,
                                                 n = strlen(p);
                                         } else {
                                                 n = snprintf(buf, bufsize,
-                                                             "%s%s:%d/%d/0x%08x",
+                                                             "%s%s:%d/%d/0x%08x/%d",
                                                              i ? "," : "",
                                                              sidstr,
                                                              ace->type,
                                                              ace->flags,
-                                                             ace->access_mask);
+                                                             ace->access_mask,
+							     sidType);
                                         }
                                 }
                                 if (!determine_size && n > bufsize) {
