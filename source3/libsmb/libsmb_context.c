@@ -329,6 +329,7 @@ smbc_free_context(SMBCCTX *context,
         smbc_setWorkgroup(context, NULL);
         smbc_setNetbiosName(context, NULL);
         smbc_setUser(context, NULL);
+        smbc_setRealm(context, NULL);
 
         DEBUG(3, ("Context %p successfully freed\n", context));
 
@@ -752,6 +753,7 @@ void smbc_set_credentials_with_fallback(SMBCCTX *context,
 	struct cli_credentials *creds = NULL;
 	enum credentials_use_kerberos kerberos_state =
 		CRED_USE_KERBEROS_DISABLED;
+        const char *realm = NULL;
 
 	if (! context) {
 
@@ -769,6 +771,8 @@ void smbc_set_credentials_with_fallback(SMBCCTX *context,
 	if (! password) {
 		password = "";
 	}
+
+        realm = smbc_getRealm(context);
 
 	creds = cli_credentials_init(NULL);
 	if (creds == NULL) {
@@ -789,6 +793,10 @@ void smbc_set_credentials_with_fallback(SMBCCTX *context,
 	cli_credentials_set_username(creds, user, CRED_SPECIFIED);
 	cli_credentials_set_password(creds, password, CRED_SPECIFIED);
 	cli_credentials_set_domain(creds, workgroup, CRED_SPECIFIED);
+        if (realm != NULL) {
+                cli_credentials_set_realm(creds, realm, CRED_SPECIFIED);
+        }
+
 	cli_credentials_set_kerberos_state(creds,
 					   kerberos_state,
 					   CRED_SPECIFIED);

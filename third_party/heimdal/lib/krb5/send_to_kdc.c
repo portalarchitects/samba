@@ -891,13 +891,15 @@ submit_request(krb5_context context, krb5_sendto_ctx ctx, krb5_krbhst_info *hi)
 	    continue;
 	rk_cloexec(fd);
 
-#ifndef NO_LIMIT_FD_SETSIZE
-	if (fd >= FD_SETSIZE) {
-	    _krb5_debug(context, 0, "fd too large for select");
-	    rk_closesocket(fd);
-	    continue;
-	}
-#endif
+// #ifndef NO_LIMIT_FD_SETSIZE
+// 	if (fd >= FD_SETSIZE) {
+// 	    _krb5_debug(context, 0, "fd too large for select");
+// 	    rk_closesocket(fd);
+// 		  	fprintf(stderr, "submit_request: POINT 6.3, fd = %d, FD_SETSIZE =%d", fd, FD_SETSIZE);
+
+// 	    continue;
+// 	}
+// #endif
 	socket_set_nonblocking(fd, 1);
 
 	host = heim_alloc(sizeof(*host), "sendto-host", deallocate_host);
@@ -969,9 +971,10 @@ submit_request(krb5_context context, krb5_sendto_ctx ctx, krb5_krbhst_info *hi)
 struct wait_ctx {
     krb5_context context;
     krb5_sendto_ctx ctx;
-    fd_set rfds;
-    fd_set wfds;
+    // fd_set rfds;
+    // fd_set wfds;
     rk_socket_t max_fd;
+	heim_dict_t fds;
     int got_reply;
     time_t timenow;
 };
@@ -1006,22 +1009,30 @@ wait_setup(heim_object_t obj, void *iter_ctx, int *stop)
 	}
     }
     
-#ifndef NO_LIMIT_FD_SETSIZE
-    heim_assert(h->fd < FD_SETSIZE, "fd too large");
-#endif
+// #ifndef NO_LIMIT_FD_SETSIZE
+//     heim_assert(h->fd < FD_SETSIZE, "fd too large");
+// #endif
+	heim_object_t k = heim_number_create(h->fd);
+	heim_object_t v;
+
     switch (h->state) {
     case WAITING_REPLY:
-	FD_SET(h->fd, &wait_ctx->rfds);
+	//FD_SET(h->fd, &wait_ctx->rfds);
+	heim_dict_set_value(wait_ctx->fds, k, v = heim_number_create(POLLIN));
+	heim_release(v);
 	break;
     case CONNECTING:
     case CONNECTED:
-	FD_SET(h->fd, &wait_ctx->rfds);
-	FD_SET(h->fd, &wait_ctx->wfds);
+	// FD_SET(h->fd, &wait_ctx->rfds);
+	// FD_SET(h->fd, &wait_ctx->wfds);
+	heim_dict_set_value(wait_ctx->fds, k, v = heim_number_create(POLLIN | POLLOUT));
+	heim_release(v);
 	break;
     default:
 	debug_host(wait_ctx->context, 5, h, "invalid sendto host state");
 	heim_abort("invalid sendto host state");
     }
+	heim_release(k);
     if (h->fd > wait_ctx->max_fd || wait_ctx->max_fd == rk_INVALID_SOCKET)
 	wait_ctx->max_fd = h->fd;
 }
@@ -1047,14 +1058,28 @@ wait_process(heim_object_t obj, void *ctx, int *stop)
 {
     struct wait_ctx *wait_ctx = ctx;
     struct host *h = (struct host *)obj;
+	heim_number_t k, v;
+	int flags;
     int readable, writeable;
     heim_assert(h->state != DEAD, "dead host resurected");
 
-#ifndef NO_LIMIT_FD_SETSIZE
-    heim_assert(h->fd < FD_SETSIZE, "fd too large");
-#endif
-    readable = FD_ISSET(h->fd, &wait_ctx->rfds);
-    writeable = FD_ISSET(h->fd, &wait_ctx->wfds);
+// #ifndef NO_LIMIT_FD_SETSIZE
+//     heim_assert(h->fd < FD_SETSIZE, "fd too large");
+// #endif
+    // readable = FD_ISSET(h->fd, &wait_ctx->rfds);
+    // writeable = FD_ISSET(h->fd, &wait_ctx->wfds);
+	k = heim_number_create(h->fd);
+	v = heim_dict_get_value(wait_ctx->fds, k);
+	if (v) {
+		flags = heim_number_get_int(v);
+		readable = flags & POLLIN;
+		writeable = flags & POLLOUT;
+		heim_release(v);
+	} else {
+		readable = 0;
+		writeable = 0;
+	}
+	heim_release(k);
 
     if (readable || writeable || h->state == CONNECT)
 	wait_ctx->got_reply |= eval_host_state(wait_ctx->context, wait_ctx->ctx, h, readable, writeable);
@@ -1062,6 +1087,24 @@ wait_process(heim_object_t obj, void *ctx, int *stop)
     /* if there is already a reply, just fall though the array */
     if (wait_ctx->got_reply)
 	*stop = 1;
+}
+
+static void
+count_fds(heim_object_t k, heim_object_t v, void *arg)
+{
+	(*((int *) arg))++;
+}
+
+static void
+build_poll_request(heim_object_t k, heim_object_t v, void *arg)
+{
+    struct pollfd **ppollfds = arg;
+
+	(*ppollfds)->fd = heim_number_get_int(k);
+	(*ppollfds)->events = heim_number_get_int(v);
+	(*ppollfds)->revents = 0;
+
+	(*ppollfds)++;
 }
 
 static krb5_error_code
@@ -1073,13 +1116,15 @@ wait_response(krb5_context context, int *action, krb5_sendto_ctx ctx)
 
     wait_ctx.context = context;
     wait_ctx.ctx = ctx;
-    FD_ZERO(&wait_ctx.rfds);
-    FD_ZERO(&wait_ctx.wfds);
+    // FD_ZERO(&wait_ctx.rfds);
+    // FD_ZERO(&wait_ctx.wfds);
     wait_ctx.max_fd = rk_INVALID_SOCKET;
+	wait_ctx.fds = heim_dict_create(10);
 
     /* oh, we have a reply, it must be a plugin that got it for us */
     if (ctx->response.length) {
 	*action = KRB5_SENDTO_FILTER;
+	heim_release(wait_ctx.fds);
 	return 0;
     }
 
@@ -1098,6 +1143,7 @@ wait_response(krb5_context context, int *action, krb5_sendto_ctx ctx)
 			 "and no more hosts -> failure");
 	    *action = KRB5_SENDTO_TIMEOUT;
 	}
+	heim_release(wait_ctx.fds);
 	return 0;
     }
 
@@ -1109,17 +1155,27 @@ wait_response(krb5_context context, int *action, krb5_sendto_ctx ctx)
 	 */
 	_krb5_debug(context, 5, "wait_response: moving the contestants forward");
 	heim_array_iterate_f(ctx->hosts, &wait_ctx, wait_accelerate);
+	heim_release(wait_ctx.fds);
 	return 0;
     }
 
     tv.tv_sec = 1;
     tv.tv_usec = 0;
 
-    ret = select(wait_ctx.max_fd + 1, &wait_ctx.rfds, &wait_ctx.wfds, NULL, &tv);
+    //ret = select(wait_ctx.max_fd + 1, &wait_ctx.rfds, &wait_ctx.wfds, NULL, &tv);
+	int fd_count = 0;
+	heim_dict_iterate_f(wait_ctx.fds, &fd_count, count_fds);
+
+	struct pollfd fds[fd_count + 1];
+	struct pollfd *currfd = &fds[0];
+	heim_dict_iterate_f(wait_ctx.fds, &currfd, build_poll_request);
+
+	ret = poll(fds, fd_count, tv.tv_sec * 1000 + tv.tv_usec / 1000);
     if (ret < 0)
 	return errno;
     if (ret == 0) {
 	*action = KRB5_SENDTO_TIMEOUT;
+	heim_release(wait_ctx.fds);
 	return 0;
     }
 
@@ -1129,6 +1185,8 @@ wait_response(krb5_context context, int *action, krb5_sendto_ctx ctx)
 	*action = KRB5_SENDTO_FILTER;
     else
 	*action = KRB5_SENDTO_CONTINUE;
+
+	heim_release(wait_ctx.fds);
 
     return 0;
 }

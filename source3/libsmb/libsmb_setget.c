@@ -80,6 +80,23 @@ smbc_setUser(SMBCCTX *c, const char *user)
 	}
 }
 
+/** Get the Kerberos realm used for making connections */
+const char *
+smbc_getRealm(SMBCCTX *c)
+{
+        return c->realm;
+}
+
+/** Set the Kerberos realm used for making connections */
+void
+smbc_setRealm(SMBCCTX *c, const char *realm)
+{
+	SAFE_FREE(c->realm);
+	if (realm) {
+		c->realm = SMB_STRDUP(realm);
+	}
+}
+
 /** Get the debug level */
 int
 smbc_getDebug(SMBCCTX *c)

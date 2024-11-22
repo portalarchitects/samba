@@ -561,6 +561,14 @@ smbc_getUser(SMBCCTX *c);
 void
 smbc_setUser(SMBCCTX *c, const char *user);
 
+/** Get the Kerberos realm used for making connections */
+const char *
+smbc_getRealm(SMBCCTX *c);
+
+/** Set the Kerberos realm used for making connections */
+void
+smbc_setRealm(SMBCCTX *c, const char *realm);
+
 /**
  * Get the timeout used for waiting on connections and response data
  * (in milliseconds)
@@ -3085,6 +3093,14 @@ struct _SMBCCTX
          * Use smbc_getUser() and smbc_setUser()
          */
         char * user DEPRECATED_SMBC_INTERFACE;
+
+        /**
+         * Kerberos realm used for making connections
+         *
+         * DEPRECATED:
+         * Use smbc_getRealm() and smbc_setRealm()
+         */
+        char * realm DEPRECATED_SMBC_INTERFACE;
 
         /**
          * timeout used for waiting on connections / response data (in

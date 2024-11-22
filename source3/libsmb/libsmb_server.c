@@ -284,16 +284,18 @@ static struct cli_credentials *SMBC_auth_credentials(TALLOC_CTX *mem_ctx,
 	bool fallback_after_kerberos = false;
 	bool use_ccache = false;
 	bool pw_nt_hash = false;
+	const char *realm = NULL;
 
 	use_kerberos = smbc_getOptionUseKerberos(context);
 	fallback_after_kerberos = smbc_getOptionFallbackAfterKerberos(context);
 	use_ccache = smbc_getOptionUseCCache(context);
 	pw_nt_hash = smbc_getOptionUseNTHash(context);
+	realm = smbc_getRealm(context);
 
 	creds = cli_session_creds_init(mem_ctx,
 				       username,
 				       domain,
-				       NULL, /* realm */
+				       realm,
 				       password,
 				       use_kerberos,
 				       fallback_after_kerberos,
