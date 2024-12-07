@@ -974,8 +974,8 @@ struct wait_ctx {
     // fd_set rfds;
     // fd_set wfds;
 
-	struct pollfd *fds;
-	int nfds;
+    struct pollfd *fds;
+    int nfds;
 
     rk_socket_t max_fd;
     int got_reply;
@@ -1016,7 +1016,7 @@ wait_setup(heim_object_t obj, void *iter_ctx, int *stop)
 //     heim_assert(h->fd < FD_SETSIZE, "fd too large");
 // #endif
 
-	short flags = 0;
+    short flags = 0;
 
     switch (h->state) {
     case WAITING_REPLY:
@@ -1034,12 +1034,12 @@ wait_setup(heim_object_t obj, void *iter_ctx, int *stop)
 	heim_abort("invalid sendto host state");
     }
 
-	if (flags != 0) {
-		wait_ctx->fds[wait_ctx->nfds].fd = h->fd;
-		wait_ctx->fds[wait_ctx->nfds].events = flags;
-		wait_ctx->fds[wait_ctx->nfds].revents = 0;
-		wait_ctx->nfds++;
-	}
+    if (flags != 0) {
+    wait_ctx->fds[wait_ctx->nfds].fd = h->fd;
+    wait_ctx->fds[wait_ctx->nfds].events = flags;
+    wait_ctx->fds[wait_ctx->nfds].revents = 0;
+    wait_ctx->nfds++;
+    }
 
     if (h->fd > wait_ctx->max_fd || wait_ctx->max_fd == rk_INVALID_SOCKET)
 	wait_ctx->max_fd = h->fd;
@@ -1077,22 +1077,22 @@ wait_process(heim_object_t obj, void *ctx, int *stop)
     // readable = FD_ISSET(h->fd, &wait_ctx->rfds);
     // writeable = FD_ISSET(h->fd, &wait_ctx->wfds);
 
-	int fd_idx = -1;
-	for (int i = 0; i < wait_ctx->nfds; i++) {
-		if (wait_ctx->fds[i].fd == h->fd) {
-			fd_idx = i;
-			break;
-		}
-	}
+    int fd_idx = -1;
+    for (int i = 0; i < wait_ctx->nfds; i++) {
+        if (wait_ctx->fds[i].fd == h->fd) {
+        fd_idx = i;
+        break;
+        }
+    }
 
-	if (fd_idx > -1) {
-		short flags = wait_ctx->fds[fd_idx].revents;
-		readable = flags & POLLIN;
-		writeable = flags & POLLOUT;
-	} else {
-		readable = 0;
-		writeable = 0;
-	}
+    if (fd_idx > -1) {
+    short flags = wait_ctx->fds[fd_idx].revents;
+    readable = flags & POLLIN;
+    writeable = flags & POLLOUT;
+    } else {
+    readable = 0;
+    writeable = 0;
+    }
 
     if (readable || writeable || h->state == CONNECT)
 	wait_ctx->got_reply |= eval_host_state(wait_ctx->context, wait_ctx->ctx, h, readable, writeable);
@@ -1115,9 +1115,9 @@ wait_response(krb5_context context, int *action, krb5_sendto_ctx ctx)
     // FD_ZERO(&wait_ctx.wfds);
     wait_ctx.max_fd = rk_INVALID_SOCKET;
 	
-	struct pollfd fds[heim_array_get_length(ctx->hosts)];
-	wait_ctx.fds = &fds;
-	wait_ctx.nfds = 0;
+    struct pollfd fds[heim_array_get_length(ctx->hosts)];
+    wait_ctx.fds = &fds;
+    wait_ctx.nfds = 0;
 
     /* oh, we have a reply, it must be a plugin that got it for us */
     if (ctx->response.length) {
@@ -1159,7 +1159,7 @@ wait_response(krb5_context context, int *action, krb5_sendto_ctx ctx)
 
     //ret = select(wait_ctx.max_fd + 1, &wait_ctx.rfds, &wait_ctx.wfds, NULL, &tv);
 
-	ret = poll(wait_ctx.fds, wait_ctx.nfds, tv.tv_sec * 1000 + tv.tv_usec / 1000);
+    ret = poll(wait_ctx.fds, wait_ctx.nfds, tv.tv_sec * 1000 + tv.tv_usec / 1000);
     if (ret < 0)
 	return errno;
     if (ret == 0) {
