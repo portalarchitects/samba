@@ -1112,7 +1112,7 @@ wait_response(krb5_context context, int *action, krb5_sendto_ctx ctx)
     wait_ctx.max_fd = rk_INVALID_SOCKET;
 	
     struct pollfd fds[heim_array_get_length(ctx->hosts)];
-    wait_ctx.fds = &fds;
+    wait_ctx.fds = fds;
     wait_ctx.nfds = 0;
 
     /* oh, we have a reply, it must be a plugin that got it for us */
