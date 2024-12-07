@@ -1064,6 +1064,7 @@ wait_process(heim_object_t obj, void *ctx, int *stop)
 {
     struct wait_ctx *wait_ctx = ctx;
     struct host *h = (struct host *)obj;
+	int flags;
     int readable, writeable;
     heim_assert(h->state != DEAD, "dead host resurected");
 
