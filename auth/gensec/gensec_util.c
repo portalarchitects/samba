@@ -394,10 +394,6 @@ NTSTATUS gensec_kerberos_possible(struct gensec_security *gensec_security)
 		return NT_STATUS_OK;
 	}
 
-	if (client_realm == NULL) {
-		return NT_STATUS_INVALID_PARAMETER;
-	}
-
 	if (hostname == NULL) {
 		return NT_STATUS_INVALID_PARAMETER;
 	}
