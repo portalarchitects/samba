@@ -405,7 +405,7 @@ add_ace(struct security_acl **the_acl,
 	struct security_acl *acl = *the_acl;
 
 	if (acl == NULL) {
-		acl = make_sec_acl(ctx, 3, 0, NULL);
+		acl = make_sec_acl(ctx, NT4_ACL_REVISION, 0, NULL);
 		if (acl == NULL) {
 			return false;
 		}
