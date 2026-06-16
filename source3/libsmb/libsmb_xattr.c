@@ -405,6 +405,7 @@ add_ace(struct security_acl **the_acl,
 	struct security_acl *acl = *the_acl;
 
 	if (acl == NULL) {
+		DEBUG(10,("TR-1760 nt.acl.revision=NT4_ACL_REVISION\n"));
 		acl = make_sec_acl(ctx, NT4_ACL_REVISION, 0, NULL);
 		if (acl == NULL) {
 			return false;
